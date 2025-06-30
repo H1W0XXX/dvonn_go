@@ -20,14 +20,14 @@ var boardBG *ebiten.Image
 
 // 调整整体大小 / 偏移（与 boardview.go 中一致）
 const (
-	triangleR = 40 // 三角形边长
+	triangleR = 70 // 三角形边长
 
-	offsetX   = 500
-	offsetY   = 300
+	offsetX   = 650
+	offsetY   = 360
 	fillColor = 0xDDDDDDFF // 淡灰填充
 
-	canvasW = 1024 // 画布宽度，与 GameView.Layout 保持一致
-	canvasH = 768  // 画布高度
+	canvasW = 1300 // 画布宽度
+	canvasH = 700  // 画布高度
 )
 
 var triangleH = math.Sqrt(3) * triangleR / 2 // 等边三角形的高度

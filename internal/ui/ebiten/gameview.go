@@ -19,7 +19,7 @@ func (g *GameView) Update() error {
 	if mv := handleInput(&g.state); mv != nil {
 		if game.ValidMove(&g.state.Board, mv) {
 			// Phase1 顺序用 turn控制；Phase2 由 getNextTurn
-			game.ExecuteMove(&g.state, mv) // 你已在 gameflow.go 写好 executeMove
+			//game.ExecuteMove(&g.state, mv) // 你已在 gameflow.go 写好 executeMove
 		}
 	}
 	return nil
@@ -35,5 +35,4 @@ func (g *GameView) Draw(screen *ebiten.Image) {
 	}
 }
 
-// Layout 设计成固定 1024×768
-func (g *GameView) Layout(outW, outH int) (int, int) { return 1024, 768 }
+func (g *GameView) Layout(outW, outH int) (int, int) { return 1300, 768 }

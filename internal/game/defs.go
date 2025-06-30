@@ -94,16 +94,16 @@ var EmptyMini = func() Board {
 // -----------------------------------------------------------------------------
 
 // TurnState 表示当前轮到谁、在放子还是跳子
-type TurnState uint8
+type TurnState string
 
 const (
-	PlacingRed TurnState = iota
-	PlacingWhite
-	PlacingBlack
-	MoveWhite
-	MoveBlack
-	Start
-	End
+	PlacingRed   = "PlacingRed"
+	PlacingWhite = "PlacingWhite"
+	PlacingBlack = "PlacingBlack"
+	MoveWhite    = "MoveWhite"
+	MoveBlack    = "MoveBlack"
+	Start        = "Start"
+	End          = "End"
 )
 
 type GamePhase uint8
@@ -119,9 +119,10 @@ const (
 
 // 接口化便于 switch type
 type GameState struct {
-	Board Board
-	Turn  TurnState
-	Phase GamePhase
+	Board     Board
+	Turn      TurnState
+	Phase     GamePhase
+	PlaceStep int64
 }
 
 type GameError uint8

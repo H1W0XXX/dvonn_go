@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	hexSize   = 40  // 边长
-	boardXOff = 100 // 屏幕偏移
-	boardYOff = 80
+	hexSize   = 40  // 六边形边长
+	boardXOff = 300 // 增大X轴偏移，确保左侧不被截断
+	boardYOff = 200 // 增大Y轴偏移，确保上方不被截断
 )
 
 // axial → 屏幕像素
@@ -42,8 +42,19 @@ func drawStack(b *game.Board, c game.Coordinate, screen *ebiten.Image) {
 	case game.Black:
 		img = imgBlack
 	}
+
+	// 计算位置
 	x, y := coordToScreen(c)
+	var scaledSize float64 = triangleR
+
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(x, y-float64(len(st))*4) // 堆高堆栈偏移
+	// 计算缩放比
+	op.GeoM.Scale(scaledSize/float64(img.Bounds().Dx()), scaledSize/float64(img.Bounds().Dy()))
+
+	// 动态调整垂直偏移，避免硬编码值
+	// 使用 scaledSize / 2 来微调棋子居中
+	op.GeoM.Translate(x-scaledSize/2, y-scaledSize/2)
+
+	// 绘制棋子
 	screen.DrawImage(img, op)
 }

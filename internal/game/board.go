@@ -1,7 +1,9 @@
 // File internal/game/board.go
 package game
 
-import "slices"
+import (
+	"fmt"
+)
 
 /*
 核心棋盘逻辑 —— 翻译自 Haskell 版 Board 模块
@@ -203,10 +205,27 @@ func numDiscardedPieces(b *Board) int { return len(b.Discard) }
 // 执行走子 & 清理
 
 // place 在指定坐标顶端压入棋子
-func place(b *Board, p Piece, c Coordinate) *Board {
-	st := slices.Clone(b.Cells[c])
-	b.Cells[c] = append([]Piece{p}, st...)
-	return b
+func place(b *Board, piece Piece, c Coordinate, gs *GameState) *Board {
+	// 检查坐标是否有效
+	if !validCoordinate(b, c) {
+		//fmt.Println("Invalid coordinate:", c)
+		return b // 如果坐标无效，返回原棋盘
+	}
+
+	// 检查当前位置是否为空，如果不为空则返回原棋盘
+	if nonempty(b, c) {
+		fmt.Println("The coordinate is already occupied:", c)
+		return b // 如果当前位置已被占用，返回原棋盘
+	}
+
+	// 将新的棋子放入栈顶
+	st := []Piece{piece} // 创建一个新的栈，将棋子放在栈的顶部
+	b.Cells[c] = st      // 更新棋盘，将栈放入指定的坐标位置
+
+	// 更新 placeStep
+	gs.PlaceStep += 1
+
+	return b // 返回更新后的棋盘
 }
 
 // combine: 将 c1 叠到 c2 顶端
@@ -237,13 +256,12 @@ func cleanup(b *Board) *Board {
 }
 
 // apply 根据 Move 更新棋盘；返回更新后的副本
-func apply(m Move, b *Board) Board {
-	switch mv := m.(type) {
-	case JumpMove:
-		combine(b, mv.From, mv.To) // 叠堆
-		cleanup(b)                 // 断连清理
-	case PlaceMove:
-		place(b, mv.Piece, mv.At) // 直接放子
-	}
-	return *b
-}
+//func apply(m Move, b *Board) {
+//	switch mv := m.(type) {
+//	case JumpMove:
+//		combine(b, mv.From, mv.To) // 叠堆
+//		cleanup(b)                 // 断连清理
+//	case PlaceMove:
+//		place(b, mv.Piece, mv.At) // 直接放子
+//	}
+//}
