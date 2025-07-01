@@ -334,3 +334,61 @@ func (b *Board) Clone() Board {
 		Discard: newDiscard,
 	}
 }
+
+// 返回所有初始的红子坐标
+func (b *Board) GetSourceCoordinates() []Coordinate {
+	var src []Coordinate
+	for c, st := range b.Cells {
+		for _, p := range st {
+			if p == Red {
+				src = append(src, c)
+				break
+			}
+		}
+	}
+	return src
+}
+
+// 计算棋盘上两点最远距离（比如枚举两两 HexDistance 取最大）
+func (b *Board) BoardDiameter() int {
+	max := 0
+	// 简单 O(n²) 也行，棋盘格数很少
+	var coords []Coordinate
+	for c := range b.Cells {
+		coords = append(coords, c)
+	}
+	for i := 0; i < len(coords); i++ {
+		for j := i + 1; j < len(coords); j++ {
+			d := HexDistance(coords[i], coords[j])
+			if d > max {
+				max = d
+			}
+		}
+	}
+	return max
+}
+
+// HexDistance 计算两个六边形格点之间的距离（六边形格距离）
+// 坐标系：使用轴坐标 (q=a.X, r=a.Y)
+// 转为立方坐标 (x=q, z=r, y=-x-z)，再取三个轴向差值的最大值
+func HexDistance(a, b Coordinate) int {
+	// axial -> cube
+	x1, z1 := a.X, a.Y
+	y1 := -x1 - z1
+	x2, z2 := b.X, b.Y
+	y2 := -x2 - z2
+
+	// 差值
+	dx := abs(x1 - x2)
+	dy := abs(y1 - y2)
+	dz := abs(z1 - z2)
+
+	// 最大值即为格距
+	if dx > dy && dx > dz {
+		return dx
+	}
+	if dy > dz {
+		return dy
+	}
+	return dz
+}
