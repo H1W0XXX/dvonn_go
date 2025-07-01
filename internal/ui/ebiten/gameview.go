@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const depth = 6
+const depth = 4
 
 type GameView struct {
 	state        game.GameState
@@ -59,7 +59,7 @@ func (g *GameView) Update() error {
 		len(g.anims) == 0 &&
 		g.pendingMv == nil {
 
-		best := ai.SearchBestMove(&g.state, 4)
+		best := ai.SearchBestMove(&g.state, depth)
 		mv2 := best
 		g.pendingMv = &mv2
 		g.anims = append(g.anims, &Animation{

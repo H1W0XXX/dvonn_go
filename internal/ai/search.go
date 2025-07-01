@@ -100,7 +100,7 @@ func getValidJumpMoves(gs *game.GameState, player game.Player) []game.JumpMove {
 
 // alphabeta 使用 TT
 func alphabeta(gs *game.GameState, depth, alpha, beta int, me game.Player, tt *TT) (int, game.Move) {
-	hash := Hash(&gs.Board)
+	hash := Hash(&gs.Board, game.TurnStateToPlayer(gs.Turn))
 	if v, mv, ok := tt.Lookup(hash, depth); ok {
 		return v, mv
 	}
