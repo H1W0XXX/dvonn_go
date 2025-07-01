@@ -89,12 +89,12 @@ func getTurnInput(gs *GameState) Move {
 //	}
 //
 //	// 应用走子，返回新的棋盘
-//	gs.Board = apply(mv, &gs.Board)
+//	gs.Board = Apply(mv, &gs.Board)
 //
 //	switch m := mv.(type) {
 //	case JumpMove:
 //		// 更新下一回合
-//		gs.Turn = getNextTurn(&gs.Board, m.Player)
+//		gs.Turn = GetNextTurn(&gs.Board, m.Player)
 //	case PlaceMove:
 //		// 放子阶段：由 runPlacementPhase 控制顺序，不在这里更新
 //	}
@@ -174,29 +174,29 @@ func findEmptySpot(b *Board) (int, int) {
 // -----------------------------------------------------------------------------
 func RunMovementPhase(gs *GameState, from, to Coordinate) {
 	// 当前行动方
-	pl := turnStateToPlayer(gs.Turn)
+	pl := TurnStateToPlayer(gs.Turn)
 
 	// 构造跳子动作
 	mv := JumpMove{Player: pl, From: from, To: to}
 
 	// 合法性校验
 	if !ValidMove(&gs.Board, mv) {
-		fmt.Println("Invalid move.")
+		fmt.Printf("Invalid move: player=%v, from stack=%v\n", mv.Player, gs.Board.Cells[mv.From])
 		return
 	}
 
-	// 应用跳子（combine+cleanup 都在 apply 里完成）
-	gs.Board = apply(mv, &gs.Board)
+	// 应用跳子（combine+cleanup 都在 Apply 里完成）
+	gs.Board = Apply(mv, &gs.Board)
 
 	// 更新下一手
-	gs.Turn = getNextTurn(&gs.Board, pl)
+	gs.Turn = GetNextTurn(&gs.Board, pl)
 
 	// 检查是否还有合法跳子
 	if !HasAnyLegalMoves(&gs.Board, gs.Turn) {
 		gs.Turn = End
 	}
 }
-func turnStateToPlayer(ts TurnState) Player {
+func TurnStateToPlayer(ts TurnState) Player {
 	switch ts {
 	case MoveWhite, PlacingWhite:
 		return PWhite
@@ -206,6 +206,17 @@ func turnStateToPlayer(ts TurnState) Player {
 		// 放子阶段红棋或 Start/End 等——默认给 White，反正不会用到
 		return PWhite
 	}
+}
+
+// IsGameOver 判断当前局面是否结束
+func IsGameOver(gs *GameState) bool {
+	return gs.Turn == End
+}
+
+// Winner 返回赢家指针；平局返回 nil。
+// 仅在 IsGameOver==true 时调用。
+func Winner(gs *GameState) *Player {
+	return calcWinner(&gs.Board) // 已在 board.go 实现
 }
 
 var summary1 = `Welcome to DVONN.

@@ -49,3 +49,11 @@ type PlaceMove struct {
 }
 
 func (PlaceMove) isMove() {}
+
+// PieceFromPlayer 把 Player 转 Piece（堆顶用）
+func (p Player) Piece() Piece {
+	if p == PWhite {
+		return White
+	}
+	return Black
+}

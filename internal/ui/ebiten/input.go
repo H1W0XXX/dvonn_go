@@ -63,56 +63,67 @@ func pixelToCoord(x, y int) (game.Coordinate, bool) {
 	return game.Coordinate{}, false
 }
 
-// handleInput 统一处理鼠标事件
-func handleInput(gs *game.GameState) {
-	// 只在鼠标“刚按下”时触发
+// handleInput 仅负责返回用户的一步操作：
+//
+//	Phase1 → PlaceMove{Piece, At}
+//	Phase2 → JumpMove{Player, From, To}
+//
+// 未按出合法一步时返回 nil。
+// handleInput 只负责从鼠标点击生成一个 Move；
+// Phase1 → PlaceMove，Phase2 → JumpMove；
+// 不再在此直接调用游戏逻辑或动画。
+func handleInput(gs *game.GameState) game.Move {
+	// 只在“刚按下”触发
 	if !inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		return
+		return nil
 	}
 
 	x, y := ebiten.CursorPosition()
 	c, ok := pixelToCoord(x, y)
 	if !ok {
 		// 点击在棋盘外，取消选中
-		selected = false
 		clickStep = 0
-		return
+		selected = false
+		return nil
 	}
 
 	// Phase 1：放子
 	if gs.Phase == game.Phase1 {
 		game.RunPlacementPhase(gs, c.X, c.Y)
-		return
+		return nil
 	}
 
-	// Phase 2：跳子
+	// Phase2：跳子
 	if gs.Phase == game.Phase2 {
-		// 第一次点击：尝试选起点
-		if clickStep == 0 {
+		switch clickStep {
+		case 0:
+			// 第一次按：选起点
 			if !isMovable(gs, c) {
-				return // 非可动堆无效
+				return nil
 			}
 			fromCoord = c
 			clickStep = 1
 			selected = true
 			selectedAt = c
-			return
-		}
+			return nil
 
-		// 第二次点击：如果是合法落点则跳子，否则取消选中
-		dests := destinations(gs, fromCoord)
-		valid := false
-		for _, d := range dests {
-			if d == c {
-				valid = true
-				break
+		case 1:
+			// 第二次按：选终点
+			for _, d := range destinations(gs, fromCoord) {
+				if d == c {
+					// 构造并返回 JumpMove
+					pl := game.TurnStateToPlayer(gs.Turn)
+					clickStep = 0
+					selected = false
+					return game.JumpMove{Player: pl, From: fromCoord, To: c}
+				}
 			}
+			// 非法落点，取消选中
+			clickStep = 0
+			selected = false
+			return nil
 		}
-		if valid {
-			game.RunMovementPhase(gs, fromCoord, c)
-		}
-		// 无论是跳子成功还是点击非落点，都重置选中状态
-		selected = false
-		clickStep = 0
 	}
+
+	return nil
 }

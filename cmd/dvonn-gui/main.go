@@ -30,6 +30,7 @@ func main() {
 	if mode == "pve" {
 		gs = game.FillPhase1Auto(&gs)
 		gs.Phase = game.Phase2
+		gs.Turn = game.MoveBlack
 	}
 
 	// 如果是 PvP 模式且启用了自动填充，则由游戏逻辑自动放置第一阶段的棋子
@@ -45,9 +46,13 @@ func main() {
 	ebiten.SetWindowTitle("DVONN – Ebiten GUI")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeDisabled)
 
+	// 限制更新／渲染循环为每秒最多 30 次
+	ebiten.SetTPS(30)
 	// 运行游戏
 	if err := ebiten.RunGame(view); err != nil {
 		ebitenutil.DebugPrint(nil, err.Error())
 		log.Fatal(err)
 	}
 }
+
+// go build -ldflags="-s -w" -gcflags="all=-trimpath=${PWD}" -asmflags="all=-trimpath=${PWD}" -o dvonn.exe .\cmd\dvonn-gui\main.go

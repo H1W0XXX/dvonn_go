@@ -117,7 +117,7 @@ func ValidMove(b *Board, mv Move) bool {
 // 轮换逻辑
 // -----------------------------------------------------------------------------
 
-func getNextTurn(b *Board, justPlayed Player) TurnState {
+func GetNextTurn(b *Board, justPlayed Player) TurnState {
 	has := func(p Player) bool {
 		for _, mv := range GetPossibleMoves(b) {
 			if jm, ok := mv.(JumpMove); ok && jm.Player == p {
