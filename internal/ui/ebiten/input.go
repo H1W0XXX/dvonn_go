@@ -4,6 +4,7 @@ package ebiten
 import (
 	"dvonn_go/internal/game"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"math"
 )
 
@@ -13,6 +14,18 @@ type dragState struct {
 }
 
 var d dragState
+var (
+	// clickStep = 0   还未选起点
+	// clickStep = 1   已选起点，等待终点
+	clickStep int
+
+	// 记录 Phase2 用户第一次点击的坐标
+	fromCoord game.Coordinate
+)
+var (
+	selected   bool            // 是否已选定起点
+	selectedAt game.Coordinate // 记录选中的堆
+)
 
 // 将鼠标像素 → 棋盘坐标；返回 (coord, 在棋盘内
 // 反算坐标
@@ -50,25 +63,56 @@ func pixelToCoord(x, y int) (game.Coordinate, bool) {
 	return game.Coordinate{}, false
 }
 
-// 处理鼠标，返回生成的 Move（或 nil）
-func handleInput(gs *game.GameState) game.Move {
-	// 如果是鼠标点击，获取坐标
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		x, y := ebiten.CursorPosition()
-		c, ok := pixelToCoord(x, y) // 将像素坐标转换为棋盘坐标
-		//fmt.Println(c)              // 打印坐标调试用
-		if !ok {
-			return nil
-		}
-
-		// Phase1：放子阶段
-		if gs.Phase == game.Phase1 {
-			// 调用 runPlacementPhase 来放置棋子
-			game.RunPlacementPhase(gs, c.X, c.Y)
-			return nil
-		}
-
+// handleInput 统一处理鼠标事件
+func handleInput(gs *game.GameState) {
+	// 只在鼠标“刚按下”时触发
+	if !inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+		return
 	}
-	// 无效输入或操作
-	return nil
+
+	x, y := ebiten.CursorPosition()
+	c, ok := pixelToCoord(x, y)
+	if !ok {
+		// 点击在棋盘外，取消选中
+		selected = false
+		clickStep = 0
+		return
+	}
+
+	// Phase 1：放子
+	if gs.Phase == game.Phase1 {
+		game.RunPlacementPhase(gs, c.X, c.Y)
+		return
+	}
+
+	// Phase 2：跳子
+	if gs.Phase == game.Phase2 {
+		// 第一次点击：尝试选起点
+		if clickStep == 0 {
+			if !isMovable(gs, c) {
+				return // 非可动堆无效
+			}
+			fromCoord = c
+			clickStep = 1
+			selected = true
+			selectedAt = c
+			return
+		}
+
+		// 第二次点击：如果是合法落点则跳子，否则取消选中
+		dests := destinations(gs, fromCoord)
+		valid := false
+		for _, d := range dests {
+			if d == c {
+				valid = true
+				break
+			}
+		}
+		if valid {
+			game.RunMovementPhase(gs, fromCoord, c)
+		}
+		// 无论是跳子成功还是点击非落点，都重置选中状态
+		selected = false
+		clickStep = 0
+	}
 }

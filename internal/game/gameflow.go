@@ -109,18 +109,29 @@ func getTurnInput(gs *GameState) Move {
 // Phase 1 — 放子
 // -----------------------------------------------------------------------------
 func RunPlacementPhase(gs *GameState, x, y int) {
-	// 根据当前回合来决定放置什么颜色的棋子
-	var piece Piece
-	if gs.PlaceStep < totalPieceNum {
-		piece = order[gs.PlaceStep]
+	// 已经放满 49 子就直接返回
+	if gs.PlaceStep >= totalPieceNum {
+		return
 	}
 
-	// 更新棋盘，放置棋子
-	gs.Board = *place(&gs.Board, piece, Coordinate{X: x, Y: y}, gs)
+	piece := order[gs.PlaceStep] // 取本步应放棋色
+	coord := Coordinate{X: x, Y: y}
 
-	// 放置完成后检查是否进入 Phase2
+	// 若该格已被占或坐标非法则忽略点击
+	if !validCoordinate(&gs.Board, coord) || nonempty(&gs.Board, coord) {
+		return
+	}
+
+	// 真正放子
+	place(&gs.Board, piece, coord)
+
+	// 步数 +1
+	gs.PlaceStep++
+
+	// 放满 49 子后进入 Phase2，按规则黑方先行
 	if gs.PlaceStep >= totalPieceNum {
 		gs.Phase = Phase2
+		gs.Turn = MoveBlack
 	}
 }
 
@@ -161,14 +172,41 @@ func findEmptySpot(b *Board) (int, int) {
 // -----------------------------------------------------------------------------
 // Phase 2 — 跳子
 // -----------------------------------------------------------------------------
+func RunMovementPhase(gs *GameState, from, to Coordinate) {
+	// 当前行动方
+	pl := turnStateToPlayer(gs.Turn)
 
-//func RunMovementPhase(gs *GameState) *Player {
-//	for gs.Turn != End {
-//		mv := getTurnInput(gs)
-//		ExecuteMove(gs, mv)
-//	}
-//	return calcWinner(&gs.Board)
-//}
+	// 构造跳子动作
+	mv := JumpMove{Player: pl, From: from, To: to}
+
+	// 合法性校验
+	if !ValidMove(&gs.Board, mv) {
+		fmt.Println("Invalid move.")
+		return
+	}
+
+	// 应用跳子（combine+cleanup 都在 apply 里完成）
+	gs.Board = apply(mv, &gs.Board)
+
+	// 更新下一手
+	gs.Turn = getNextTurn(&gs.Board, pl)
+
+	// 检查是否还有合法跳子
+	if !HasAnyLegalMoves(&gs.Board, gs.Turn) {
+		gs.Turn = End
+	}
+}
+func turnStateToPlayer(ts TurnState) Player {
+	switch ts {
+	case MoveWhite, PlacingWhite:
+		return PWhite
+	case MoveBlack, PlacingBlack:
+		return PBlack
+	default:
+		// 放子阶段红棋或 Start/End 等——默认给 White，反正不会用到
+		return PWhite
+	}
+}
 
 var summary1 = `Welcome to DVONN.
 

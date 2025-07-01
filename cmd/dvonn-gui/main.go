@@ -29,6 +29,7 @@ func main() {
 	// 如果是 PvE 模式并且启用了自动填充，则自动填充第一阶段棋子
 	if mode == "pve" {
 		gs = game.FillPhase1Auto(&gs)
+		gs.Phase = game.Phase2
 	}
 
 	// 如果是 PvP 模式且启用了自动填充，则由游戏逻辑自动放置第一阶段的棋子
@@ -37,7 +38,7 @@ func main() {
 	}
 
 	// 创建初始 GameView（持有 GameState）
-	view := ui.NewGameView(gs)
+	view := ui.NewGameView(gs, mode)
 
 	// 窗口参数与 GameView.Layout 对齐
 	ebiten.SetWindowSize(1024, 500)

@@ -1,10 +1,6 @@
 // File internal/game/board.go
 package game
 
-import (
-	"fmt"
-)
-
 /*
 核心棋盘逻辑 —— 翻译自 Haskell 版 Board 模块
 仅依赖 types.go 中的基本类型，无 UI / AI 耦合
@@ -38,15 +34,18 @@ func validCoordinate(b *Board, c Coordinate) bool {
 // allNeighbors 按 DVONN 六向邻接获取相邻坐标（若超出棋盘即丢弃）
 func allNeighbors(b *Board, c Coordinate) map[Coordinate]struct{} {
 	dirs := [6]Coordinate{
-		{+1, 0}, {-1, 0},
-		{0, +1}, {0, -1},
-		{+1, +1}, {-1, -1},
+		{+1, 0},
+		{+1, -1},
+		{0, -1},
+		{-1, 0},
+		{-1, +1},
+		{0, +1},
 	}
 	ns := make(map[Coordinate]struct{}, 6)
 	for _, d := range dirs {
 		n := Coordinate{c.X + d.X, c.Y + d.Y}
 		if validCoordinate(b, n) {
-			setAdd(ns, n)
+			ns[n] = struct{}{}
 		}
 	}
 	return ns
@@ -205,27 +204,20 @@ func numDiscardedPieces(b *Board) int { return len(b.Discard) }
 // 执行走子 & 清理
 
 // place 在指定坐标顶端压入棋子
-func place(b *Board, piece Piece, c Coordinate, gs *GameState) *Board {
-	// 检查坐标是否有效
+// place 在指定坐标顶端压入棋子；如坐标非法或已被占则保持原状
+func place(b *Board, p Piece, c Coordinate) *Board {
+	// 坐标非法
 	if !validCoordinate(b, c) {
-		//fmt.Println("Invalid coordinate:", c)
-		return b // 如果坐标无效，返回原棋盘
+		return b
 	}
-
-	// 检查当前位置是否为空，如果不为空则返回原棋盘
+	// 该格已被占
 	if nonempty(b, c) {
-		fmt.Println("The coordinate is already occupied:", c)
-		return b // 如果当前位置已被占用，返回原棋盘
+		return b
 	}
 
-	// 将新的棋子放入栈顶
-	st := []Piece{piece} // 创建一个新的栈，将棋子放在栈的顶部
-	b.Cells[c] = st      // 更新棋盘，将栈放入指定的坐标位置
-
-	// 更新 placeStep
-	gs.PlaceStep += 1
-
-	return b // 返回更新后的棋盘
+	// 压栈
+	b.Cells[c] = []Piece{p}
+	return b
 }
 
 // combine: 将 c1 叠到 c2 顶端
@@ -255,13 +247,26 @@ func cleanup(b *Board) *Board {
 	return b
 }
 
-// apply 根据 Move 更新棋盘；返回更新后的副本
-//func apply(m Move, b *Board) {
-//	switch mv := m.(type) {
-//	case JumpMove:
-//		combine(b, mv.From, mv.To) // 叠堆
-//		cleanup(b)                 // 断连清理
-//	case PlaceMove:
-//		place(b, mv.Piece, mv.At) // 直接放子
-//	}
-//}
+// -----------------------------------------------------------------------------
+// apply —— 将 Move 应用到棋盘，返回更新后的 *值拷贝*
+// -----------------------------------------------------------------------------
+// 约定：调用者已用 ValidMove 判断合法性；这里不再做额外校验。
+func apply(m Move, b *Board) Board {
+	switch mv := m.(type) {
+	case JumpMove:
+		// ① 把 mv.From 叠到 mv.To
+		combine(b, mv.From, mv.To)
+		// ② 移除与红子断开的连通块
+		cleanup(b)
+
+	case PlaceMove:
+		// 直接在目标顶端放入棋子
+		place(b, mv.Piece, mv.At)
+
+	default:
+		// 未知 Move 类型 —— 不做任何改动
+	}
+
+	// 返回修改后的「值拷贝」，方便写：gs.Board = apply(mv, &gs.Board)
+	return *b
+}

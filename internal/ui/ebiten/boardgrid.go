@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	lineColor   = color.RGBA{0x44, 0x44, 0x44, 0xFF} // 线条颜色：深灰
-	circleColor = color.RGBA{0xB0, 0xC4, 0xDE, 0xFF} // 淡蓝色
-	textColor   = color.RGBA{0x00, 0x00, 0x00, 0xFF}
+	lineColor      = color.RGBA{0x44, 0x44, 0x44, 0xFF} // 深灰线
+	circleColor    = color.RGBA{0xB0, 0xC4, 0xDE, 0xFF} // 默认圆 (棋盘背景)
+	highlightBlue  = color.RGBA{0x00, 0x66, 0xFF, 0xFF} // 可移动堆：蓝
+	highlightGreen = color.RGBA{0x00, 0xCC, 0x66, 0xFF} // 可落点：绿
 )
 
 // boardBG 在 init 时构建，Draw 时直接贴上
@@ -82,4 +83,10 @@ func getAdjacentCoordinates(c game.Coordinate) []game.Coordinate {
 		adjacent = append(adjacent, game.Coordinate{X: c.X + delta.X, Y: c.Y + delta.Y})
 	}
 	return adjacent
+}
+
+func drawCircleColored(dst *ebiten.Image, c game.Coordinate, col color.Color) {
+	x, y := coordToScreen(c)
+	r := float64(triangleR) / 3
+	ebitenutil.DrawCircle(dst, x, y, r, col)
 }
