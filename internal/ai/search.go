@@ -18,7 +18,7 @@ type rootResult struct {
 // SearchBestMove 入口：迭代加深 αβ，根节点多核并行，返回最佳 JumpMove
 func SearchBestMove(gs *game.GameState, depth int) game.JumpMove {
 	// 把 GOMAXPROCS 设为 CPU 核心数
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU() - 1)
 
 	me := game.TurnStateToPlayer(gs.Turn)
 
