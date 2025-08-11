@@ -121,7 +121,7 @@ func (g *GameView) Update() error {
 
 		g.showedResult = true
 	}
-
+	enterPerf()
 	return nil
 }
 

@@ -11,10 +11,10 @@ import "dvonn_go/internal/game"
 func Evaluate(b *game.Board, me game.Player) int {
 	// ——权重参数，可根据实测微调——
 	const (
-		wRedCapture    = 4  // 每吃到一个红子得分
-		wEnemyCapture  = 10 // 每吃到一个对手棋子得分
-		wProximityUnit = 3  // 离红子每近 1 格加分
-		wControlPower  = 15 // 控制力差的权重
+		wRedCapture    = 8  // 每吃到一个红子得分
+		wEnemyCapture  = 3  // 每吃到一个对手棋子得分
+		wProximityUnit = 4  // 离红子每近 1 格加分
+		wControlPower  = 10 // 控制力差的权重
 	)
 
 	// 确定「我方」和「对手」的颜色
