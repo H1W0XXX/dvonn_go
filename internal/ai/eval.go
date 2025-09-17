@@ -26,69 +26,69 @@ func Evaluate(b *game.Board, me game.Player) int {
 	}
 
 	// 拿到所有红子（Source）的位置，以及最大可能距离，用来归一化
-	sources := b.GetSourceCoordinates() // 需要在 Board 上实现这个方法
-	maxDist := b.BoardDiameter()        // 得到棋盘直径（最大六边形距离）
+	sources := b.GetSourceCoordinates()
+	maxDist := b.BoardDiameter()
+	if maxDist == 0 {
+		maxDist = 1
+	}
 
-	// 计算空位置的数量
-	emptyCount := 0
 	totalCount := len(b.Cells)
-	for _, st := range b.Cells {
-		if len(st) == 0 {
-			emptyCount++
-		}
-	}
-
-	// 计算控制棋子数量
+	emptyCount := 0
 	var myControl, opControl int
-	for _, st := range b.Cells {
-		if len(st) == 0 {
-			continue
-		}
-		owner := st[0] // 栈顶决定控制方
-		if owner == myCol {
-			myControl++
-		} else if owner == opCol {
-			opControl++
-		}
-	}
-
-	// 计算评分
 	score := 0
 
-	// 1) 吃红子 & 吃对手棋子加分
-	for _, st := range b.Cells {
+	for coord, st := range b.Cells {
 		if len(st) == 0 {
+			emptyCount++
 			continue
 		}
+
+		owner := st[0] // 栈顶决定控制权
+		ownerFactor := 0
+		switch owner {
+		case myCol:
+			ownerFactor = 1
+			myControl++
+		case opCol:
+			ownerFactor = -1
+			opControl++
+		}
+
+		if ownerFactor == 0 {
+			continue
+		}
+
+		// 1) 按控制方加权红子与被俘敌子的价值
 		for _, p := range st {
 			switch p {
 			case game.Red:
-				score += wRedCapture
+				score += ownerFactor * wRedCapture
+			case myCol:
+				if owner == opCol {
+					score -= wEnemyCapture // 我的子被对方控制，扣分
+				}
 			case opCol:
-				score += wEnemyCapture
+				if owner == myCol {
+					score += wEnemyCapture // 对方的子被我控制，加分
+				}
 			}
+		}
+
+		// 2) 离最近红子的距离优势
+		if len(sources) > 0 {
+			minD := maxDist
+			for _, src := range sources {
+				d := game.HexDistance(coord, src)
+				if d < minD {
+					minD = d
+				}
+			}
+			score += ownerFactor * (maxDist - minD) * wProximityUnit
 		}
 	}
 
-	// 2) 离红子加分
-	for coord, st := range b.Cells {
-		if len(st) == 0 {
-			continue
-		}
-		// 找到最小距离
-		minD := maxDist
-		for _, src := range sources {
-			d := game.HexDistance(coord, src)
-			if d < minD {
-				minD = d
-			}
-		}
-		score += (maxDist - minD) * wProximityUnit
-	}
-
-	// 3) 如果空位置占比超过一半，计算控制力差
-	if float64(emptyCount)/float64(totalCount) > 0.5 {
-		// 控制力差值
+	// 3) 空位占多数时，考虑控制力差
+	if totalCount > 0 && float64(emptyCount)/float64(totalCount) > 0.5 {
 		controlDiff := myControl - opControl
 		score += controlDiff * wControlPower
 	}

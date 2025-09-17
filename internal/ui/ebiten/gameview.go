@@ -6,6 +6,9 @@ import (
 	"dvonn_go/internal/game"
 	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
+	"golang.org/x/image/font/basicfont"
+	"image/color"
 )
 
 const depth = 4
@@ -129,6 +132,10 @@ func (g *GameView) Draw(screen *ebiten.Image) {
 	// 1. 绘制棋盘背景
 	screen.DrawImage(boardBG, nil)
 
+	// 1.1 左上角显示双方当前可控棋子数
+	blackScore, whiteScore := currentScores(&g.state.Board)
+	drawScoreboard(screen, blackScore, whiteScore)
+
 	// 2. Phase2 且未选中时，高亮可移动堆
 	if g.state.Phase == game.Phase2 && !selected {
 		for _, c := range movableCoords(&g.state) {
@@ -164,4 +171,41 @@ func (g *GameView) Draw(screen *ebiten.Image) {
 }
 func (g *GameView) Layout(_, _ int) (int, int) {
 	return 1300, 768
+}
+
+// currentScores 统计黑白双方当前控制的棋子总数
+func currentScores(b *game.Board) (black, white int) {
+	for _, st := range b.Cells {
+		if len(st) == 0 {
+			continue
+		}
+		switch st[0] {
+		case game.Black:
+			black += len(st)
+		case game.White:
+			white += len(st)
+		}
+	}
+	return
+}
+
+func drawScoreboard(screen *ebiten.Image, blackScore, whiteScore int) {
+	const (
+		marginX = 20
+		marginY = 30
+		lineSpacing = 20
+	)
+	shadowColor := color.Black
+	textColor := color.White
+
+	labelBlack := fmt.Sprintf("Black: %d", blackScore)
+	labelWhite := fmt.Sprintf("White: %d", whiteScore)
+
+	drawTextWithShadow(screen, labelBlack, marginX, marginY, shadowColor, textColor)
+	drawTextWithShadow(screen, labelWhite, marginX, marginY+lineSpacing, shadowColor, textColor)
+}
+
+func drawTextWithShadow(screen *ebiten.Image, label string, x, y int, shadowColor, textColor color.Color) {
+	text.Draw(screen, label, basicfont.Face7x13, x+1, y+1, shadowColor)
+	text.Draw(screen, label, basicfont.Face7x13, x, y, textColor)
 }

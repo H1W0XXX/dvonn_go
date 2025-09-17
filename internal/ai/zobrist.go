@@ -55,8 +55,8 @@ func Hash(b *game.Board, turn game.Player) uint64 {
 		if len(st) == 0 {
 			continue
 		}
-		// 栈顶颜色索引
-		top := st[len(st)-1]
+		// 栈顶颜色索引（本项目中 stack[0] 为顶）
+		top := st[0]
 		var colorIdx int
 		switch top {
 		case game.Red:
