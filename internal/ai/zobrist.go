@@ -17,6 +17,8 @@ var (
 	zobristCol [3][BoardW][BoardH]uint64
 	// 高度维度：1…MaxStackHeight
 	zobristHgt [MaxStackHeight + 1][BoardW][BoardH]uint64
+	// 逐层棋子颜色：第 idx 层 (0=顶层)
+	zobristStack [MaxStackHeight][BoardW][BoardH][3]uint64
 	// 走子权：表示当前轮到谁走
 	zobristSide uint64
 )
@@ -34,6 +36,15 @@ func init() {
 		for x := 0; x < BoardW; x++ {
 			for y := 0; y < BoardH; y++ {
 				zobristHgt[h][x][y] = randomUint64()
+			}
+		}
+	}
+	for layer := 0; layer < MaxStackHeight; layer++ {
+		for x := 0; x < BoardW; x++ {
+			for y := 0; y < BoardH; y++ {
+				for color := 0; color < 3; color++ {
+					zobristStack[layer][x][y][color] = randomUint64()
+				}
 			}
 		}
 	}
@@ -55,24 +66,26 @@ func Hash(b *game.Board, turn game.Player) uint64 {
 		if len(st) == 0 {
 			continue
 		}
+		if c.X < 0 || c.X >= BoardW || c.Y < 0 || c.Y >= BoardH {
+			continue
+		}
+
 		// 栈顶颜色索引（本项目中 stack[0] 为顶）
 		top := st[0]
-		var colorIdx int
-		switch top {
-		case game.Red:
-			colorIdx = 0
-		case game.White:
-			colorIdx = 1
-		case game.Black:
-			colorIdx = 2
-		}
-		// 栈高
+		topIdx := pieceIndex(top)
 		height := len(st)
-		if c.X >= 0 && c.X < BoardW && c.Y >= 0 && c.Y < BoardH {
-			h ^= zobristCol[colorIdx][c.X][c.Y]
-			if height <= MaxStackHeight {
-				h ^= zobristHgt[height][c.X][c.Y]
+
+		h ^= zobristCol[topIdx][c.X][c.Y]
+		if height <= MaxStackHeight {
+			h ^= zobristHgt[height][c.X][c.Y]
+		}
+
+		for layer, piece := range st {
+			if layer >= MaxStackHeight {
+				break
 			}
+			idx := pieceIndex(piece)
+			h ^= zobristStack[layer][c.X][c.Y][idx]
 		}
 	}
 	// 走子权
@@ -80,6 +93,19 @@ func Hash(b *game.Board, turn game.Player) uint64 {
 		h ^= zobristSide
 	}
 	return h
+}
+
+func pieceIndex(p game.Piece) int {
+	switch p {
+	case game.Red:
+		return 0
+	case game.White:
+		return 1
+	case game.Black:
+		return 2
+	default:
+		return 0
+	}
 }
 
 // ---------------- TT 结构 ---------------------
