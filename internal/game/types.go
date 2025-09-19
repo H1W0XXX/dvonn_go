@@ -28,7 +28,7 @@ type Stack []Piece
 
 // Board 持有棋盘上的所有坐标栈及弃子区
 type Board struct {
-	Cells   map[Coordinate]Stack // 空格用 nil / len==0 表示
+	Cells   [BoardWidth][BoardHeight]*Stack // 空格用 nil / len==0 表示
 	Discard Stack
 }
 

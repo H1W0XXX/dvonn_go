@@ -92,7 +92,7 @@ func getValidJumpMoves(gs *game.GameState, player game.Player) []game.JumpMove {
 
 	// 简单排序：先尝试吃子多的
 	sort.Slice(validJumpMoves, func(i, j int) bool {
-		return len(gs.Board.Cells[validJumpMoves[i].To]) > len(gs.Board.Cells[validJumpMoves[j].To])
+		return len(*gs.Board.Cells[validJumpMoves[i].To.X][validJumpMoves[i].To.Y]) > len(*gs.Board.Cells[validJumpMoves[j].To.X][validJumpMoves[j].To.Y])
 	})
 
 	return validJumpMoves

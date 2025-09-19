@@ -8,17 +8,16 @@ import (
 
 // -------------- Zobrist 随机表 ----------------
 const (
-	BoardW, BoardH = 12, 6
 	MaxStackHeight = 49 // DVONN 初始一共 49 颗棋子，栈高不可能超过它
 )
 
 var (
 	// 颜色维度：Red、White、Black
-	zobristCol [3][BoardW][BoardH]uint64
+	zobristCol [3][game.BoardWidth][game.BoardHeight]uint64
 	// 高度维度：1…MaxStackHeight
-	zobristHgt [MaxStackHeight + 1][BoardW][BoardH]uint64
+	zobristHgt [MaxStackHeight + 1][game.BoardWidth][game.BoardHeight]uint64
 	// 逐层棋子颜色：第 idx 层 (0=顶层)
-	zobristStack [MaxStackHeight][BoardW][BoardH][3]uint64
+	zobristStack [MaxStackHeight][game.BoardWidth][game.BoardHeight][3]uint64
 	// 走子权：表示当前轮到谁走
 	zobristSide uint64
 )
@@ -26,22 +25,22 @@ var (
 func init() {
 	// 初始化颜色和高度维度随机表
 	for p := 0; p < 3; p++ {
-		for x := 0; x < BoardW; x++ {
-			for y := 0; y < BoardH; y++ {
+		for x := 0; x < game.BoardWidth; x++ {
+			for y := 0; y < game.BoardHeight; y++ {
 				zobristCol[p][x][y] = randomUint64()
 			}
 		}
 	}
 	for h := 1; h <= MaxStackHeight; h++ {
-		for x := 0; x < BoardW; x++ {
-			for y := 0; y < BoardH; y++ {
+		for x := 0; x < game.BoardWidth; x++ {
+			for y := 0; y < game.BoardHeight; y++ {
 				zobristHgt[h][x][y] = randomUint64()
 			}
 		}
 	}
 	for layer := 0; layer < MaxStackHeight; layer++ {
-		for x := 0; x < BoardW; x++ {
-			for y := 0; y < BoardH; y++ {
+		for x := 0; x < game.BoardWidth; x++ {
+			for y := 0; y < game.BoardHeight; y++ {
 				for color := 0; color < 3; color++ {
 					zobristStack[layer][x][y][color] = randomUint64()
 				}
@@ -62,30 +61,31 @@ func randomUint64() uint64 {
 func Hash(b *game.Board, turn game.Player) uint64 {
 	var h uint64
 	// 棋子颜色和高度
-	for c, st := range b.Cells {
-		if len(st) == 0 {
-			continue
-		}
-		if c.X < 0 || c.X >= BoardW || c.Y < 0 || c.Y >= BoardH {
-			continue
-		}
-
-		// 栈顶颜色索引（本项目中 stack[0] 为顶）
-		top := st[0]
-		topIdx := pieceIndex(top)
-		height := len(st)
-
-		h ^= zobristCol[topIdx][c.X][c.Y]
-		if height <= MaxStackHeight {
-			h ^= zobristHgt[height][c.X][c.Y]
-		}
-
-		for layer, piece := range st {
-			if layer >= MaxStackHeight {
-				break
+	for x := 0; x < game.BoardWidth; x++ {
+		for y := 0; y < game.BoardHeight; y++ {
+			//coord := game.Coordinate{X: x, Y: y} // 将坐标 (x, y) 转换为 Coordinate 类型
+			st := b.Cells[x][y]
+			if st == nil || len(*st) == 0 {
+				continue
 			}
-			idx := pieceIndex(piece)
-			h ^= zobristStack[layer][c.X][c.Y][idx]
+
+			// 栈顶颜色索引（本项目中 stack[0] 为顶）
+			top := (*st)[0] // 解引用 st，获取栈顶棋子
+			topIdx := pieceIndex(top)
+			height := len(*st)
+
+			h ^= zobristCol[topIdx][x][y]
+			if height <= MaxStackHeight {
+				h ^= zobristHgt[height][x][y]
+			}
+
+			for layer, piece := range *st {
+				if layer >= MaxStackHeight {
+					break
+				}
+				idx := pieceIndex(piece)
+				h ^= zobristStack[layer][x][y][idx]
+			}
 		}
 	}
 	// 走子权

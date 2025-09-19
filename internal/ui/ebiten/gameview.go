@@ -18,15 +18,15 @@ type GameView struct {
 	mode         string
 	aiPlayer     game.Player
 	anims        []*Animation
-	pendingMv    *game.JumpMove //等待执行的跳子
+	pendingMv    *game.JumpMove //�ȴ�ִ�е�����
 	showedResult bool
 
-	// 新增：标记“当前队首动画是否来自AI”，用于在动画播放结束后触发省电
+	// ��������ǡ���ǰ���׶����Ƿ�����AI���������ڶ������Ž����󴥷�ʡ��
 	aiAnimPlaying bool
 }
 
 func NewGameView(gs game.GameState, mode string) *GameView {
-	// 约定 AI 操作黑棋，人类操作白棋
+	// Լ�� AI �������壬�����������
 	return &GameView{
 		state:         gs,
 		mode:          mode,
@@ -39,15 +39,15 @@ func NewGameView(gs game.GameState, mode string) *GameView {
 }
 
 func (g *GameView) Update() error {
-	// 1) 玩家输入 → 产生 Move
+	// 1) ������� �� ���� Move
 	if mv := handleInput(&g.state); mv != nil {
 		switch m := mv.(type) {
 		case game.PlaceMove:
-			// 放子阶段：立即执行
+			// ���ӽ׶Σ�����ִ��
 			game.RunPlacementPhase(&g.state, m.At.X, m.At.Y)
 
 		case game.JumpMove:
-			// 跳子阶段：**不** 立刻执行，只排入动画 & 挂起（玩家动画，不触发 aiAnimPlaying）
+			// ���ӽ׶Σ�**��** ����ִ�У�ֻ���붯�� & ������Ҷ����������� aiAnimPlaying��
 			mv2 := m
 			g.pendingMv = &mv2
 			g.anims = append(g.anims, &Animation{
@@ -58,7 +58,7 @@ func (g *GameView) Update() error {
 		}
 	}
 
-	// 2) PvE AI 下子：只挂起，不立刻合并
+	// 2) PvE AI ���ӣ�ֻ���𣬲����̺ϲ�
 	if !game.IsGameOver(&g.state) &&
 		g.mode == "pve" &&
 		g.state.Phase == game.Phase2 &&
@@ -75,25 +75,25 @@ func (g *GameView) Update() error {
 			From:  best.From,
 			To:    best.To,
 		})
-		// 标记：当前播放的这一段动画来自 AI
+		// ��ǣ���ǰ���ŵ���һ�ζ������� AI
 		g.aiAnimPlaying = true
 	}
 
-	// 3) 推进所有动画帧
+	// 3) �ƽ����ж���֡
 	for _, a := range g.anims {
 		a.frame++
 	}
 
-	// 4) 如果队首动画完成，再真正执行一次 RunMovementPhase
+	// 4) ������׶�����ɣ�������ִ��һ�� RunMovementPhase
 	if len(g.anims) > 0 && g.anims[0].done() && g.pendingMv != nil {
 		m := *g.pendingMv
 		game.RunMovementPhase(&g.state, m.From, m.To)
 		g.pendingMv = nil
 	}
 
-	// 5) 清理已完成的动画
-	//    若这次确实从队列里移除了已完成动画，且该段动画来自 AI，
-	//    则在**动画播放结束后**调用 leavePerf()
+	// 5) ��������ɵĶ���
+	//    �����ȷʵ�Ӷ������Ƴ�������ɶ������Ҹöζ������� AI��
+	//    ����**�������Ž�����**���� leavePerf()
 	{
 		had := len(g.anims)
 		var next []*Animation
@@ -102,36 +102,37 @@ func (g *GameView) Update() error {
 				next = append(next, a)
 			}
 		}
-		removed := had > len(next) // 本帧有动画结束并被移除
+		removed := had > len(next) // ��֡�ж������������Ƴ�
 		g.anims = next
 
 		if removed && g.aiAnimPlaying {
-			// 仅在 AI 的那段动画播放完毕后触发一次省电
+			// ���� AI ���Ƕζ���������Ϻ󴥷�һ��ʡ��
 			g.aiAnimPlaying = false
 			leavePerf()
 		}
 	}
 
-	//6) 游戏结束
+	//6) ��Ϸ����
 	if game.IsGameOver(&g.state) && !g.showedResult {
-		// 1) 统计各自控制的子数
+		// 1) ͳ�Ƹ��Կ��Ƶ�����
 		var whiteCnt, blackCnt int
-		for _, st := range g.state.Board.Cells {
-			if len(st) == 0 {
-				continue
+		forEachCoordinate(func(c game.Coordinate) {
+			st := g.state.Board.Cells[c.X][c.Y]
+			if st == nil || len(*st) == 0 {
+				return
 			}
-			switch st[0] {
+			switch (*st)[0] {
 			case game.White:
-				whiteCnt += len(st)
+				whiteCnt += len(*st)
 			case game.Black:
-				blackCnt += len(st)
+				blackCnt += len(*st)
 			}
-		}
+		})
 
-		// 2) 输出统计结果
+		// 2) ���ͳ�ƽ��
 		fmt.Printf("Game over! White controls %d pieces; Black controls %d pieces.", whiteCnt, blackCnt)
 
-		// 3) 输出胜负
+		// 3) ���ʤ��
 		switch {
 		case whiteCnt > blackCnt:
 			fmt.Println(" White wins!")
@@ -145,26 +146,26 @@ func (g *GameView) Update() error {
 	}
 
 	booted = true
-	// ⚠️ 去掉原来每帧无条件调用 leavePerf() 的代码
+	// ?? ȥ��ԭ��ÿ֡���������� leavePerf() �Ĵ���
 	return nil
 }
 
 func (g *GameView) Draw(screen *ebiten.Image) {
-	// 1. 绘制棋盘背景
+	// 1. �������̱���
 	screen.DrawImage(boardBG, nil)
 
-	// 1.1 左上角显示双方当前可控棋子数
+	// 1.1 ���Ͻ���ʾ˫����ǰ�ɿ�������
 	blackScore, whiteScore := currentScores(&g.state.Board)
 	drawScoreboard(screen, blackScore, whiteScore)
 
-	// 2. Phase2 且未选中时，高亮可移动堆
+	// 2. Phase2 ��δѡ��ʱ���������ƶ���
 	if g.state.Phase == game.Phase2 && !selected {
 		for _, c := range movableCoords(&g.state) {
 			drawCircleColored(screen, c, highlightBlue)
 		}
 	}
 
-	// 3. 已选中时，高亮起点及落点
+	// 3. ��ѡ��ʱ��������㼰���
 	if selected {
 		drawCircleColored(screen, selectedAt, highlightBlue)
 		for _, dst := range destinations(&g.state, selectedAt) {
@@ -172,20 +173,21 @@ func (g *GameView) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	// 4. 计算 “隐藏” 列表 ——  在动画播放期间，隐藏源格和目标格的静态绘制
+	// 4. ���� �����ء� �б� ����  �ڶ��������ڼ䣬����Դ���Ŀ���ľ�̬����
 	hide := map[game.Coordinate]bool{}
 	for _, a := range g.anims {
 		hide[a.From] = true
 	}
 
-	// 5. 绘制所有静态棋子（跳过正在动画的源/目标格）
-	for c := range g.state.Board.Cells {
-		if !hide[c] {
-			drawStack(&g.state.Board, c, screen)
+	// 5. �������о�̬���ӣ��������ڶ�����Դ/Ŀ���
+	forEachCoordinate(func(c game.Coordinate) {
+		if hide[c] {
+			return
 		}
-	}
+		drawStack(&g.state.Board, c, screen)
+	})
 
-	// 6. 播放动画帧
+	// 6. ���Ŷ���֡
 	for _, a := range g.anims {
 		a.Draw(screen)
 	}
@@ -194,19 +196,20 @@ func (g *GameView) Layout(_, _ int) (int, int) {
 	return 1300, 768
 }
 
-// currentScores 统计黑白双方当前控制的棋子总数
+// currentScores ͳ�ƺڰ�˫����ǰ���Ƶ���������
 func currentScores(b *game.Board) (black, white int) {
-	for _, st := range b.Cells {
-		if len(st) == 0 {
-			continue
+	forEachCoordinate(func(c game.Coordinate) {
+		st := b.Cells[c.X][c.Y]
+		if st == nil || len(*st) == 0 {
+			return
 		}
-		switch st[0] {
+		switch (*st)[0] {
 		case game.Black:
-			black += len(st)
+			black += len(*st)
 		case game.White:
-			white += len(st)
+			white += len(*st)
 		}
-	}
+	})
 	return
 }
 

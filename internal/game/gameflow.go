@@ -14,10 +14,8 @@ var order = []Piece{Red, Red, Red}
 const totalPieceNum = 49
 
 func init() {
-
-	// 交替放置黑白棋子
-	l := len(order)
-	for i := 0; i < totalPieceNum-l; i++ {
+	// 然后交替添加23个黑棋和23个白棋
+	for i := 0; i < 46; i++ {
 		if i%2 == 0 {
 			order = append(order, Black)
 		} else {
@@ -148,25 +146,20 @@ func FillPhase1Auto(gs *GameState) GameState {
 
 // findEmptySpot 找到棋盘上一个空格
 func findEmptySpot(b *Board) (int, int) {
-	// 获取所有空的坐标
 	var emptyCoords []Coordinate
-	for x := -5; x <= 5; x++ {
-		for y := -2; y <= 2; y++ {
-			coord := Coordinate{X: x, Y: y}
-			if !nonempty(b, coord) { // 如果该位置为空
-				emptyCoords = append(emptyCoords, coord)
-			}
+	ForEachPlayable(func(c Coordinate) {
+		if !nonempty(b, c) {
+			emptyCoords = append(emptyCoords, c)
 		}
+	})
+
+	if len(emptyCoords) == 0 {
+		c := playableCoords[0]
+		return c.X, c.Y
 	}
 
-	// 如果有空格，随机选择一个空格
-	if len(emptyCoords) > 0 {
-		randomIndex := rand.Intn(len(emptyCoords)) // 从空格中随机选一个
-		return emptyCoords[randomIndex].X, emptyCoords[randomIndex].Y
-	}
-
-	// 如果没有空格，返回一个默认坐标
-	return -5, -2 // 或者根据实际情况返回其他默认值
+	coord := emptyCoords[rand.Intn(len(emptyCoords))]
+	return coord.X, coord.Y
 }
 
 // -----------------------------------------------------------------------------
@@ -181,7 +174,7 @@ func RunMovementPhase(gs *GameState, from, to Coordinate) {
 
 	// 合法性校验
 	if !ValidMove(&gs.Board, mv) {
-		fmt.Printf("Invalid move: player=%v, from stack=%v\n", mv.Player, gs.Board.Cells[mv.From])
+		fmt.Printf("Invalid move: player=%v, from stack=%v\n", mv.Player, gs.Board.Cells[mv.From.X][mv.From.Y])
 		return
 	}
 

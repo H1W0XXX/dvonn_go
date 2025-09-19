@@ -16,19 +16,22 @@ func setDel[S comparable](m map[S]struct{}, s S)      { delete(m, s) }
 //-----------------------------------------------------------------------------
 // 坐标全集与合法性
 
-// coordinates 返回棋盘上所有有效坐标
-func coordinates(b *Board) map[Coordinate]struct{} {
-	out := make(map[Coordinate]struct{}, len(b.Cells))
-	for c := range b.Cells {
-		setAdd(out, c)
-	}
-	return out
-}
-
 // validCoordinate 判断给定坐标是否在棋盘上
 func validCoordinate(b *Board, c Coordinate) bool {
-	_, ok := b.Cells[c]
-	return ok
+	// 保证坐标在定长数组的范围内
+	return c.X >= 0 && c.X < BoardWidth && c.Y >= 0 && c.Y < BoardHeight
+}
+
+// coordinates 返回棋盘上所有有效坐标
+
+func coordinates(b *Board) map[Coordinate]struct{} {
+	out := make(map[Coordinate]struct{})
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			setAdd(out, Coordinate{X: x, Y: y})
+		}
+	}
+	return out
 }
 
 // allNeighbors 按 DVONN 六向邻接获取相邻坐标（若超出棋盘即丢弃）
@@ -41,7 +44,7 @@ func allNeighbors(b *Board, c Coordinate) map[Coordinate]struct{} {
 		{-1, +1},
 		{0, +1},
 	}
-	ns := make(map[Coordinate]struct{}, 6)
+	ns := make(map[Coordinate]struct{})
 	for _, d := range dirs {
 		n := Coordinate{c.X + d.X, c.Y + d.Y}
 		if validCoordinate(b, n) {
@@ -61,7 +64,11 @@ func neighborOf(b *Board, c1, c2 Coordinate) bool {
 
 // containsRed 判断单格栈内是否含红子
 func containsRed(b *Board, c Coordinate) bool {
-	for _, p := range b.Cells[c] {
+	stack := b.Cells[c.X][c.Y]
+	if stack == nil {
+		return false
+	}
+	for _, p := range *stack {
 		if p == Red {
 			return true
 		}
@@ -82,15 +89,16 @@ func hasRed(b *Board, coords map[Coordinate]struct{}) bool {
 //-----------------------------------------------------------------------------
 // 非空/空格 & 邻居
 
-func nonempty(b *Board, c Coordinate) bool { return len(b.Cells[c]) > 0 }
+func nonempty(b *Board, c Coordinate) bool {
+	stack := b.Cells[c.X][c.Y]
+	return stack != nil && len(*stack) > 0
+}
 
 func neighbors(b *Board, c Coordinate) []Coordinate {
-	// 保护：未初始化就直接返回空
-	if b == nil || b.Cells == nil {
+	if b == nil {
 		return nil
 	}
 
-	// 六个轴向相邻方向
 	dirs := [6]Coordinate{
 		{+1, 0},
 		{+1, -1},
@@ -103,8 +111,7 @@ func neighbors(b *Board, c Coordinate) []Coordinate {
 	var result []Coordinate
 	for _, d := range dirs {
 		nc := Coordinate{X: c.X + d.X, Y: c.Y + d.Y}
-		// 只把真正存在于 b.Cells 中的格子当邻居
-		if _, ok := b.Cells[nc]; ok {
+		if validCoordinate(b, nc) {
 			result = append(result, nc)
 		}
 	}
@@ -112,7 +119,7 @@ func neighbors(b *Board, c Coordinate) []Coordinate {
 }
 
 // -----------------------------------------------------------------------------
-// DFS 求连通块
+// allComponents 扫描所有非空格子，对每个还没访问过的格子用 component 拆出一个连通块。
 func component(b *Board, start Coordinate) map[Coordinate]struct{} {
 	if !nonempty(b, start) {
 		return nil
@@ -121,7 +128,6 @@ func component(b *Board, start Coordinate) map[Coordinate]struct{} {
 	var dfs func(Coordinate)
 	dfs = func(cur Coordinate) {
 		for _, n := range neighbors(b, cur) {
-			// 只对有棋子的邻居继续遍历
 			if nonempty(b, n) {
 				if _, visited := seen[n]; !visited {
 					seen[n] = struct{}{}
@@ -134,34 +140,8 @@ func component(b *Board, start Coordinate) map[Coordinate]struct{} {
 	return seen
 }
 
-// allComponents 扫描所有非空格子，对每个还没访问过的格子用 component 拆出一个连通块。
-func allComponents(b *Board) []map[Coordinate]struct{} {
-	visited := make(map[Coordinate]struct{})
-	var comps []map[Coordinate]struct{}
-
-	for c := range b.Cells {
-		if nonempty(b, c) {
-			// 跳过已经归入某个连通块的格子
-			if _, seen := visited[c]; !seen {
-				comp := component(b, c)
-				// 标记所有 comp 中的格子已访问
-				for k := range comp {
-					visited[k] = struct{}{}
-				}
-				comps = append(comps, comp)
-			}
-		}
-	}
-	return comps
-}
-
 // isSurrounded：某格若六邻全被占，则该堆不能移动
 func isSurrounded(b *Board, c Coordinate) bool {
-	if b == nil || b.Cells == nil {
-		return false
-	}
-
-	// 六个轴向相邻方向向量
 	dirs := []Coordinate{
 		{+1, -1}, {+1, 0}, {0, +1},
 		{-1, +1}, {-1, 0}, {0, -1},
@@ -169,10 +149,11 @@ func isSurrounded(b *Board, c Coordinate) bool {
 
 	for _, d := range dirs {
 		nc := Coordinate{X: c.X + d.X, Y: c.Y + d.Y}
-		stack, exists := b.Cells[nc]
-		// 只要有一个方向：①不在棋盘（exists==false）
-		// 或者 ②在棋盘但空（len(stack)==0），就不是被包围
-		if !exists || len(stack) == 0 {
+		if !validCoordinate(b, nc) {
+			return false
+		}
+		stack := b.Cells[nc.X][nc.Y]
+		if stack == nil || len(*stack) == 0 {
 			return false
 		}
 	}
@@ -183,20 +164,29 @@ func isSurrounded(b *Board, c Coordinate) bool {
 // 统计与胜负判定
 
 // innerstack 直接取出坐标栈（nil 视为空）
-func innerstack(b *Board, c Coordinate) Stack { return b.Cells[c] }
+func innerstack(b *Board, c Coordinate) Stack {
+	stack := b.Cells[c.X][c.Y]
+	if stack == nil {
+		return nil
+	}
+	return *stack
+}
 
 // calcWinner 根据全盘堆顶方计算胜负（高者胜，等高和局）
 func calcWinner(b *Board) *Player {
 	var whiteCnt, blackCnt int
-	for c := range b.Cells {
-		st := innerstack(b, c)
-		if len(st) == 0 {
-			continue
-		}
-		if st[0] == White {
-			whiteCnt += len(st)
-		} else if st[0] == Black {
-			blackCnt += len(st)
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			c := Coordinate{X: x, Y: y}
+			st := innerstack(b, c)
+			if len(st) == 0 {
+				continue
+			}
+			if st[0] == White {
+				whiteCnt += len(st)
+			} else if st[0] == Black {
+				blackCnt += len(st)
+			}
 		}
 	}
 	switch {
@@ -214,9 +204,12 @@ func calcWinner(b *Board) *Player {
 // nonempties / empties / countEmpty
 func nonempties(b *Board) map[Coordinate]struct{} {
 	s := make(map[Coordinate]struct{})
-	for c := range b.Cells {
-		if nonempty(b, c) {
-			setAdd(s, c)
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			c := Coordinate{X: x, Y: y}
+			if nonempty(b, c) {
+				setAdd(s, c)
+			}
 		}
 	}
 	return s
@@ -224,9 +217,12 @@ func nonempties(b *Board) map[Coordinate]struct{} {
 
 func empties(b *Board) map[Coordinate]struct{} {
 	s := make(map[Coordinate]struct{})
-	for c := range b.Cells {
-		if !nonempty(b, c) {
-			setAdd(s, c)
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			c := Coordinate{X: x, Y: y}
+			if !nonempty(b, c) {
+				setAdd(s, c)
+			}
 		}
 	}
 	return s
@@ -247,36 +243,44 @@ func numDiscardedPieces(b *Board) int { return len(b.Discard) }
 //-----------------------------------------------------------------------------
 // 执行走子 & 清理
 
-// place 在指定坐标顶端压入棋子
 // place 在指定坐标顶端压入棋子；如坐标非法或已被占则保持原状
 func place(b *Board, p Piece, c Coordinate) *Board {
-	// 坐标非法
 	if !validCoordinate(b, c) {
 		return b
 	}
-	// 该格已被占
+
+	// 如果该位置已有棋子，则不做修改
 	if nonempty(b, c) {
 		return b
 	}
 
-	// 压栈
-	b.Cells[c] = []Piece{p}
+	// 放置棋子
+	b.Cells[c.X][c.Y] = &Stack{p}
 	return b
 }
 
 // combine: 将 c1 叠到 c2 顶端
 func combine(b *Board, c1, c2 Coordinate) *Board {
-	newStack := append(innerstack(b, c1), innerstack(b, c2)...)
-	b.Cells[c1] = nil
-	b.Cells[c2] = newStack
+	stack1 := b.Cells[c1.X][c1.Y]
+	stack2 := b.Cells[c2.X][c2.Y]
+	if stack1 == nil || stack2 == nil {
+		return b
+	}
+
+	newStack := append(*stack1, *stack2...)
+	b.Cells[c2.X][c2.Y] = &newStack
+	b.Cells[c1.X][c1.Y] = nil
 	return b
 }
 
 // discard: 把给定坐标集合中的栈扔进弃子堆，并清空原格
 func discard(b *Board, coords map[Coordinate]struct{}) *Board {
 	for c := range coords {
-		b.Discard = append(b.Discard, b.Cells[c]...)
-		b.Cells[c] = nil
+		stack := b.Cells[c.X][c.Y]
+		if stack != nil {
+			b.Discard = append(b.Discard, *stack...)
+			b.Cells[c.X][c.Y] = nil
+		}
 	}
 	return b
 }
@@ -289,6 +293,29 @@ func cleanup(b *Board) *Board {
 		}
 	}
 	return b
+}
+func allComponents(b *Board) []map[Coordinate]struct{} {
+	visited := make(map[Coordinate]struct{}) // 用来记录已访问过的格子
+	var comps []map[Coordinate]struct{}      // 存储所有的连通块
+
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			c := Coordinate{X: x, Y: y}
+			if nonempty(b, c) {
+				// 如果该格子非空且尚未访问过
+				if _, seen := visited[c]; !seen {
+					comp := component(b, c) // 获取该连通块
+					// 标记所有 comp 中的格子已访问
+					for k := range comp {
+						visited[k] = struct{}{}
+					}
+					comps = append(comps, comp) // 将连通块添加到结果中
+				}
+			}
+		}
+	}
+
+	return comps
 }
 
 // -----------------------------------------------------------------------------
@@ -317,32 +344,39 @@ func Apply(m Move, b *Board) Board {
 
 // Clone 深度拷贝一个 Board，Cells map 与 Discard 切片都新建
 func (b *Board) Clone() Board {
-	// 复制 Cells
-	newCells := make(map[Coordinate]Stack, len(b.Cells))
-	for c, st := range b.Cells {
-		// st 是 []Piece
-		newSt := make([]Piece, len(st))
-		copy(newSt, st)
-		newCells[c] = newSt
+	// 使用定长数组来创建 newCells
+	var newCells [BoardWidth][BoardHeight]*Stack
+
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			stack := b.Cells[x][y]
+			if stack != nil {
+				// 复制 Stack
+				newStack := append([]Piece(nil), *stack...)
+				newCells[x][y] = (*Stack)(&newStack)
+			}
+		}
 	}
-	// 复制 Discard
-	newDiscard := make([]Piece, len(b.Discard))
-	copy(newDiscard, b.Discard)
 
 	return Board{
 		Cells:   newCells,
-		Discard: newDiscard,
+		Discard: append([]Piece(nil), b.Discard...), // 复制 Discard
 	}
 }
 
 // 返回所有初始的红子坐标
 func (b *Board) GetSourceCoordinates() []Coordinate {
 	var src []Coordinate
-	for c, st := range b.Cells {
-		for _, p := range st {
-			if p == Red {
-				src = append(src, c)
-				break
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			st := b.Cells[x][y]
+			if st != nil {
+				for _, p := range *st { // 解引用 st，遍历栈中的每个 Piece
+					if p == Red { // 比较 Piece 是否是 Red
+						src = append(src, Coordinate{X: x, Y: y})
+						break
+					}
+				}
 			}
 		}
 	}
@@ -354,9 +388,12 @@ func (b *Board) BoardDiameter() int {
 	max := 0
 	// 简单 O(n²) 也行，棋盘格数很少
 	var coords []Coordinate
-	for c := range b.Cells {
-		coords = append(coords, c)
+	for x := 0; x < BoardWidth; x++ {
+		for y := 0; y < BoardHeight; y++ {
+			coords = append(coords, Coordinate{X: x, Y: y})
+		}
 	}
+
 	for i := 0; i < len(coords); i++ {
 		for j := i + 1; j < len(coords); j++ {
 			d := HexDistance(coords[i], coords[j])
@@ -365,6 +402,7 @@ func (b *Board) BoardDiameter() int {
 			}
 		}
 	}
+
 	return max
 }
 

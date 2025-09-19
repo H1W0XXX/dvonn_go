@@ -14,7 +14,7 @@ type Animation struct {
 }
 
 // 总帧数：越大越慢
-const animFrames = 30
+const animFrames = 10
 
 // 完成？
 func (a *Animation) done() bool { return a.frame >= animFrames }

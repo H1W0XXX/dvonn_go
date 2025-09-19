@@ -37,53 +37,57 @@ func Evaluate(b *game.Board, me game.Player) int {
 	var myControl, opControl int
 	score := 0
 
-	for coord, st := range b.Cells {
-		if len(st) == 0 {
-			emptyCount++
-			continue
-		}
+	for x := 0; x < game.BoardWidth; x++ {
+		for y := 0; y < game.BoardHeight; y++ {
+			coord := game.Coordinate{X: x, Y: y}
+			st := b.Cells[x][y]
+			if st == nil || len(*st) == 0 { // 检查栈是否为 nil 或为空
+				emptyCount++
+				continue
+			}
 
-		owner := st[0] // 栈顶决定控制权
-		ownerFactor := 0
-		switch owner {
-		case myCol:
-			ownerFactor = 1
-			myControl++
-		case opCol:
-			ownerFactor = -1
-			opControl++
-		}
-
-		if ownerFactor == 0 {
-			continue
-		}
-
-		// 1) 按控制方加权红子与被俘敌子的价值
-		for _, p := range st {
-			switch p {
-			case game.Red:
-				score += ownerFactor * wRedCapture
+			owner := (*st)[0] // 栈顶决定控制权
+			ownerFactor := 0
+			switch owner {
 			case myCol:
-				if owner == opCol {
-					score -= wEnemyCapture // 我的子被对方控制，扣分
-				}
+				ownerFactor = 1
+				myControl++
 			case opCol:
-				if owner == myCol {
-					score += wEnemyCapture // 对方的子被我控制，加分
-				}
+				ownerFactor = -1
+				opControl++
 			}
-		}
 
-		// 2) 离最近红子的距离优势
-		if len(sources) > 0 {
-			minD := maxDist
-			for _, src := range sources {
-				d := game.HexDistance(coord, src)
-				if d < minD {
-					minD = d
+			if ownerFactor == 0 {
+				continue
+			}
+
+			// 1) 按控制方加权红子与被俘敌子的价值
+			for _, p := range *st {
+				switch p {
+				case game.Red:
+					score += ownerFactor * wRedCapture
+				case myCol:
+					if owner == opCol {
+						score -= wEnemyCapture // 我的子被对方控制，扣分
+					}
+				case opCol:
+					if owner == myCol {
+						score += wEnemyCapture // 对方的子被我控制，加分
+					}
 				}
 			}
-			score += ownerFactor * (maxDist - minD) * wProximityUnit
+
+			// 2) 离最近红子的距离优势
+			if len(sources) > 0 {
+				minD := maxDist
+				for _, src := range sources {
+					d := game.HexDistance(coord, src)
+					if d < minD {
+						minD = d
+					}
+				}
+				score += ownerFactor * (maxDist - minD) * wProximityUnit
+			}
 		}
 	}
 
