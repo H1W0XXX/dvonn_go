@@ -111,7 +111,7 @@ func handleInput(gs *game.GameState) game.Move {
 			// 第二次按：选终点
 			for _, d := range destinations(gs, fromCoord) {
 				if d == c {
-					leavePerf()
+					enterPerf()
 					// 构造并返回 JumpMove
 					pl := game.TurnStateToPlayer(gs.Turn)
 					clickStep = 0

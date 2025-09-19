@@ -12,7 +12,7 @@ func enterPerf() {
 	if !booted || perfOn {
 		return
 	}
-	ebiten.SetMaxTPS(60)                     // 动画更顺
+	ebiten.SetTPS(10)
 	ebiten.SetFPSMode(ebiten.FPSModeVsyncOn) // 或 VsyncOffMaximum
 	perfOn = true
 }
@@ -21,6 +21,6 @@ func leavePerf() {
 		return
 	}
 	ebiten.SetFPSMode(ebiten.FPSModeVsyncOffMinimum) // 省电
-	ebiten.SetMaxTPS(10)
+	ebiten.SetTPS(60)
 	perfOn = false
 }

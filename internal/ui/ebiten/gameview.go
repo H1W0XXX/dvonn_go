@@ -1,4 +1,4 @@
-// File internal/ui/ebiten/gameview.go
+// File: internal/ui/ebiten/gameview.go
 package ebiten
 
 import (
@@ -20,19 +20,24 @@ type GameView struct {
 	anims        []*Animation
 	pendingMv    *game.JumpMove //等待执行的跳子
 	showedResult bool
+
+	// 新增：标记“当前队首动画是否来自AI”，用于在动画播放结束后触发省电
+	aiAnimPlaying bool
 }
 
 func NewGameView(gs game.GameState, mode string) *GameView {
 	// 约定 AI 操作黑棋，人类操作白棋
 	return &GameView{
-		state:        gs,
-		mode:         mode,
-		aiPlayer:     game.PWhite,
-		anims:        []*Animation{},
-		pendingMv:    nil,
-		showedResult: false,
+		state:         gs,
+		mode:          mode,
+		aiPlayer:      game.PWhite,
+		anims:         []*Animation{},
+		pendingMv:     nil,
+		showedResult:  false,
+		aiAnimPlaying: false,
 	}
 }
+
 func (g *GameView) Update() error {
 	// 1) 玩家输入 → 产生 Move
 	if mv := handleInput(&g.state); mv != nil {
@@ -42,7 +47,7 @@ func (g *GameView) Update() error {
 			game.RunPlacementPhase(&g.state, m.At.X, m.At.Y)
 
 		case game.JumpMove:
-			// 跳子阶段：**不** 立刻执行，只排入动画 & 挂起
+			// 跳子阶段：**不** 立刻执行，只排入动画 & 挂起（玩家动画，不触发 aiAnimPlaying）
 			mv2 := m
 			g.pendingMv = &mv2
 			g.anims = append(g.anims, &Animation{
@@ -53,7 +58,7 @@ func (g *GameView) Update() error {
 		}
 	}
 
-	// 2) PvE AI 下子也同理，只挂起，不立刻合并
+	// 2) PvE AI 下子：只挂起，不立刻合并
 	if !game.IsGameOver(&g.state) &&
 		g.mode == "pve" &&
 		g.state.Phase == game.Phase2 &&
@@ -70,6 +75,8 @@ func (g *GameView) Update() error {
 			From:  best.From,
 			To:    best.To,
 		})
+		// 标记：当前播放的这一段动画来自 AI
+		g.aiAnimPlaying = true
 	}
 
 	// 3) 推进所有动画帧
@@ -85,13 +92,25 @@ func (g *GameView) Update() error {
 	}
 
 	// 5) 清理已完成的动画
-	var next []*Animation
-	for _, a := range g.anims {
-		if !a.done() {
-			next = append(next, a)
+	//    若这次确实从队列里移除了已完成动画，且该段动画来自 AI，
+	//    则在**动画播放结束后**调用 leavePerf()
+	{
+		had := len(g.anims)
+		var next []*Animation
+		for _, a := range g.anims {
+			if !a.done() {
+				next = append(next, a)
+			}
+		}
+		removed := had > len(next) // 本帧有动画结束并被移除
+		g.anims = next
+
+		if removed && g.aiAnimPlaying {
+			// 仅在 AI 的那段动画播放完毕后触发一次省电
+			g.aiAnimPlaying = false
+			leavePerf()
 		}
 	}
-	g.anims = next
 
 	//6) 游戏结束
 	if game.IsGameOver(&g.state) && !g.showedResult {
@@ -124,7 +143,9 @@ func (g *GameView) Update() error {
 
 		g.showedResult = true
 	}
-	enterPerf()
+
+	booted = true
+	// ⚠️ 去掉原来每帧无条件调用 leavePerf() 的代码
 	return nil
 }
 
@@ -191,8 +212,8 @@ func currentScores(b *game.Board) (black, white int) {
 
 func drawScoreboard(screen *ebiten.Image, blackScore, whiteScore int) {
 	const (
-		marginX = 20
-		marginY = 30
+		marginX     = 20
+		marginY     = 30
 		lineSpacing = 20
 	)
 	shadowColor := color.Black
